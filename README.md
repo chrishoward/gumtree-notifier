@@ -1,6 +1,7 @@
 # gumtree-notifier
 
 Tech Stack
+
 - Node.js.
 - Puppeteer (JS in node.js) - Scraping.
 - MongoDB (Running on EC2) - Storing data.
@@ -10,6 +11,7 @@ Tech Stack
 
 Requirements
 --- INITIAL SETUP ---
+
 - Create AWS account. - Moses
   - Create EC2 Instance - Moses
     - Install MongoDb database - Moses
@@ -18,6 +20,7 @@ Requirements
   - Serverless framework - Install package
 
 --- LAMBDA FUNCTION ---
+
 - Watch gumtree every minute for a searched item.
   - Retrieving existing items.
     - Request data from MongoDB.
@@ -28,9 +31,9 @@ Requirements
     - Open web page.
     - Input search for item.
     - Scrape the Ad links, Ad ID's.
-  - Compare newly scraped items to existing items. 
-    - Check if there are new entries in the newly scraped data set. 
-    - If there are new entries. 
+  - Compare newly scraped items to existing items.
+    - Check if there are new entries in the newly scraped data set.
+    - If there are new entries.
       - Send Notifications of newly listed items.
         - AWS SES - Using requests to communicate with API to send Emails.
       - Store items if there are new items.
