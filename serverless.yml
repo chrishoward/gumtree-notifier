@@ -1,0 +1,17 @@
+service: gumtree-notifier
+
+provider:
+  name: aws
+  runtime: nodejs8.10
+  stage: prod
+  region: ap-southeast-2
+  profile: moses
+
+functions:
+  notify:
+    handler: src/index.notify
+    # events:
+
+plugins:
+  - serverless-webpack
+  - serverless-offline
