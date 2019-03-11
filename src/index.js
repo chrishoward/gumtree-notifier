@@ -1,8 +1,4 @@
 export const notify = (event, context, callback) => {
-  const obj = {
-    a: "success"
-  };
-  const { a } = obj;
-  console.log(a);
+  console.log("success");
   callback(null, `notify() Execution Complete`);
 };

@@ -13,11 +13,10 @@ Requirements
 --- INITIAL SETUP ---
 
 - Create AWS account. - Moses
-  - Create EC2 Instance - Moses
-    - Install MongoDb database - Moses
-  - Setup AWS SES - Email notifications
-- NPM - Node package manager
-  - Serverless framework - Install package
+- Create/configure EC2 Instance - Moses
+- Install/configure MongoDb database (incl. Auth) - Moses
+- Serverless framework - Chris
+- Setup AWS SES - Email notifications
 
 --- LAMBDA FUNCTION ---
 
