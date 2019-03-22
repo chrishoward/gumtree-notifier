@@ -9,7 +9,7 @@ const axios = require('axios');
 (async () => {
 // variables
   const searchItem = 'Weber';
-  const browser = await puppeteer.launch({headless: false});
+  const browser = await puppeteer.launch({headless: false, timeout: 100000});
   const page = await browser.newPage();
 const databaseUrl = "http://dbUsername:dbPassword@dbUrl/gumtree-notifier"
   // functions
@@ -25,18 +25,21 @@ const databaseUrl = "http://dbUsername:dbPassword@dbUrl/gumtree-notifier"
   try {
 
     // load the page
-    await page.goto('https://gumtree.com.au/');
+    await page.goto('https://www.google.com.au/');
     
     // highlight the search bar
-    await page.focus('.search-query');
-    // input searchItem (weber)
-    await page.keyboard.type(searchItem);
-    // Click the search button
+    await page.focus('#tsf > div:nth-child(2) > div > div.RNNXgb > div > div.a4bIc > input');
+
+    // input to searchItem
+    await page.keyboard.type('weber gumtree queensland');
+    
+    // Click on search button
+    await page.click('#tsf > div:nth-child(2) > div > div.FPdoLc.VlcLAe > center > input[type="submit"]:nth-child(1)');
+
 
     // Collect Ad information
-
     
-    await page.evaluate(() => console.log(`The page ${location.href} has been loaded`));
+    // await page.evaluate(() => console.log(`The page ${location.href} has been loaded`));
     await page.screenshot({ path: 'gumtree.png' });
 
   } catch (error) {
@@ -45,7 +48,7 @@ const databaseUrl = "http://dbUsername:dbPassword@dbUrl/gumtree-notifier"
     
   } finally {
 
-    await browser.close();
+    //await browser.close();
 
   }
 
