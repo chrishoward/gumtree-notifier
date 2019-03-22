@@ -57,24 +57,55 @@ AWS.config.credentials = credentials;
   // BAD: remove login details from file and git history
   const databaseUrl = "http://dbUsername:dbPassword@dbUrl/gumtree-notifier/"
 
+  const browser = await puppeteer.launch({ headless: false, timeout: 100000 });
+  const page = await browser.newPage();
   try {
-    const browser = await puppeteer.launch({ headless: false, timeout: 100000 });
-    const page = await browser.newPage();
     // load the page
-    await page.goto('https://www.google.com.au/');
+    await page.goto('https://www.google.com.au/', {
+      waitUntil: "networkidle0"
+    });
     // highlight the search bar
     await page.focus('#tsf > div:nth-child(2) > div > div.RNNXgb > div > div.a4bIc > input');
     // input to searchItem
     await page.keyboard.type('weber gumtree queensland');
-    // Click on search button
-    await page.click('#tsf > div:nth-child(2) > div > div.FPdoLc.VlcLAe > center > input[type="submit"]:nth-child(1)');
+    // Click on search button and wait for navigation to finish
+    await Promise.all([
+      page.waitForNavigation(),
+      page.click('#tsf > div:nth-child(2) > div > div.FPdoLc.VlcLAe > center > input[type="submit"]:nth-child(1)')
+    ]);
+    // Click on first link in google and wait for navigation to finish
+    await Promise.all([
+      page.waitForNavigation(),
+      page.click('div.srg .g:first-child  a')
+    ]);
+
+    // Change search box from 'weber bbq' to 'weber'
+    await page.click('#input-search-input', { clickCount: 3 })
+    await page.keyboard.type('weber');
+    await Promise.all([
+      page.waitFor(3000),
+      page.keyboard.press('Enter')
+    ]);
+
     // Collect Ad information
+    let ads;
+    let adsArray;
+    await page.evaluate(() => {
+      ads = document.getElementsByClassName('user-ad-row');
+      adsArray = Array.from(ads);
+
+      // console.log(adsArray);
+    })
+
+    // await page.evaluate(() => document.getElementById("input-search-input").click() = "");
+    // await page.focus('#input-search-input');
+    // await page.keyboard.type('weber');
     // await page.evaluate(() => console.log(`The page ${location.href} has been loaded`));
     // await page.screenshot({ path: 'gumtree.png' });
   } catch (error) {
     console.log(`Error: ${error}`);
   } finally {
-    await browser.close();
+    // await browser.close();
   }
 
   // put scraped new ads data into data structure
