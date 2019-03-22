@@ -1,5 +1,5 @@
 
-// package imports
+// npm package imports
 const puppeteer = require('puppeteer');
 const axios = require('axios');
 const AWS = require('aws-sdk');
@@ -12,17 +12,30 @@ const credentials = new AWS.SharedIniFileCredentials({ profile: 'default' });
 AWS.config.credentials = credentials;
 
 (async () => {
-  // variables
-  const searchItem = 'Weber';
-  const browser = await puppeteer.launch({ headless: false, timeout: 100000 });
-  const page = await browser.newPage();
-  const databaseUrl = "http://dbUsername:dbPassword@dbUrl/gumtree-notifier/_all_docs?include_docs=true"
   // functions
   const getPreviousAdsDataFromDb = async () => {
     try {
-      const httpResponse = await axios.get(databaseUrl);
+      const httpResponse = await axios.get(`${databaseUrl}/_all_docs?include_docs=true`);
       const previousAdsData = httpResponse.data.rows[0].doc.ads;
       return previousAdsData;
+    } catch (error) {
+      // console.error(error);
+    }
+  }
+
+  const updateAdsDataInDb = async (scrapedAdsDataArray) => {
+    try {
+      const httpResponse = await axios.get(`${databaseUrl}/_all_docs?include_docs=true`);
+      // console.log('httpResponse: ', httpResponse);
+      const document = httpResponse.data.rows[0].doc;
+      const previousAdsDataId = document._id;
+      const previousAdsDataRev = document._rev;
+      const newDocument = {
+        "_rev": previousAdsDataRev,
+        "ads": scrapedAdsDataArray
+      }
+      const httpResponse2 = await axios.put(`${databaseUrl}/${previousAdsDataId}`, newDocument)
+      // console.log('httpResponse2: ', httpResponse2);
     } catch (error) {
       console.error(error);
     }
@@ -39,38 +52,30 @@ AWS.config.credentials = credentials;
     return newAds;
   }
 
-  // load the page
-  await page.goto('https://www.google.com.au/');
+  // variables
+  const searchItem = 'Weber';
+  // BAD: remove login details from file and git history
+  const databaseUrl = "http://dbUsername:dbPassword@dbUrl/gumtree-notifier/"
 
-  // highlight the search bar
-  await page.focus('#tsf > div:nth-child(2) > div > div.RNNXgb > div > div.a4bIc > input');
-
-  // input to searchItem
-  await page.keyboard.type('weber gumtree queensland');
-
-  // Click on search button
-  await page.click('#tsf > div:nth-child(2) > div > div.FPdoLc.VlcLAe > center > input[type="submit"]:nth-child(1)');
-
-
-  // Collect Ad information
-
-  // await page.evaluate(() => console.log(`The page ${location.href} has been loaded`));
-  await page.screenshot({ path: 'gumtree.png' });
-
-  //   // Collect Ad information
-
-
-  //await browser.close();
-
-  // } catch (error) {
-
-  //   console.log(`Error: ${error}`);
-
-  // } finally {
-
-  //   await browser.close();
-
-  // }
+  try {
+    const browser = await puppeteer.launch({ headless: false, timeout: 100000 });
+    const page = await browser.newPage();
+    // load the page
+    await page.goto('https://www.google.com.au/');
+    // highlight the search bar
+    await page.focus('#tsf > div:nth-child(2) > div > div.RNNXgb > div > div.a4bIc > input');
+    // input to searchItem
+    await page.keyboard.type('weber gumtree queensland');
+    // Click on search button
+    await page.click('#tsf > div:nth-child(2) > div > div.FPdoLc.VlcLAe > center > input[type="submit"]:nth-child(1)');
+    // Collect Ad information
+    // await page.evaluate(() => console.log(`The page ${location.href} has been loaded`));
+    // await page.screenshot({ path: 'gumtree.png' });
+  } catch (error) {
+    console.log(`Error: ${error}`);
+  } finally {
+    await browser.close();
+  }
 
   // put scraped new ads data into data structure
   const scrapedAdsData = [
@@ -102,6 +107,7 @@ AWS.config.credentials = credentials;
   if (newAdsFound) {
     // Create sendEmail params 
     const params = {
+      // TODO: change email details
       Destination: { /* required */
         // CcAddresses: [
         // 'example@gmail.com'
@@ -140,10 +146,11 @@ AWS.config.credentials = credentials;
     sendPromise.then(data => {
       console.log(data.MessageId);
     }).catch(err => {
-      console.error(err, err.stack);
+      // console.error(err, err.stack);
     });
 
     // if new ads found put the scraped ads array into db (overwrite previous?)
+    updateAdsDataInDb(scrapedAdsData);
 
   } // end of 'if (newAdsFound) { ... }'
 
