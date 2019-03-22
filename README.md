@@ -4,9 +4,8 @@ Tech Stack
 
 - Node.js.
 - Puppeteer (JS in node.js) - Scraping.
-- MongoDB (Running on EC2) - Storing data.
-- Lambda Functions - (Function execution on demand)
-  - Serverless framework
+- CouchDB (Running on EC2) - Storing data. (includes HTTP API interface)
+- Script running at set intervals on EC2 instance in Node
 - AWS SES - Simple Email Service - Sending notifications
 
 Requirements
@@ -14,8 +13,8 @@ Requirements
 
 - Create AWS account. - Moses
 - Create/configure EC2 Instance - Moses
-- Install/configure MongoDb database (incl. Auth) - Moses
-- Serverless framework - Chris
+- Install/configure CouchDb database (incl. Auth) - Moses
+- Set up Node / repo on EC2 instance
 - Setup AWS SES - Email notifications
 
 --- LAMBDA FUNCTION ---
