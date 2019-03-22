@@ -14,8 +14,8 @@ AWS.config.credentials = credentials;
 (async () => {
   // variables
   const searchItem = 'Weber';
-  // const browser = await puppeteer.launch({ headless: false });
-  // const page = await browser.newPage();
+  const browser = await puppeteer.launch({ headless: false, timeout: 100000 });
+  const page = await browser.newPage();
   const databaseUrl = "http://dbUsername:dbPassword@dbUrl/gumtree-notifier/_all_docs?include_docs=true"
   // functions
   const getPreviousAdsDataFromDb = async () => {
@@ -39,22 +39,28 @@ AWS.config.credentials = credentials;
     return newAds;
   }
 
-  // try {
+  // load the page
+  await page.goto('https://www.google.com.au/');
 
-  //   // load the page
-  //   await page.goto('https://gumtree.com.au/');
+  // highlight the search bar
+  await page.focus('#tsf > div:nth-child(2) > div > div.RNNXgb > div > div.a4bIc > input');
 
-  //   // highlight the search bar
-  //   await page.focus('.search-query');
-  //   // input searchItem (weber)
-  //   await page.keyboard.type(searchItem);
-  //   // Click the search button
+  // input to searchItem
+  await page.keyboard.type('weber gumtree queensland');
+
+  // Click on search button
+  await page.click('#tsf > div:nth-child(2) > div > div.FPdoLc.VlcLAe > center > input[type="submit"]:nth-child(1)');
+
+
+  // Collect Ad information
+
+  // await page.evaluate(() => console.log(`The page ${location.href} has been loaded`));
+  await page.screenshot({ path: 'gumtree.png' });
 
   //   // Collect Ad information
 
 
-  //   await page.evaluate(() => console.log(`The page ${location.href} has been loaded`));
-  //   await page.screenshot({ path: 'gumtree.png' });
+  //await browser.close();
 
   // } catch (error) {
 
