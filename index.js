@@ -2,12 +2,13 @@
 const puppeteer = require('puppeteer');
 const axios = require('axios');
 const AWS = require('aws-sdk');
+const config = require('./config');
 
 // set region for SES emailing
-AWS.config.update({ region: 'us-east-1' });
+AWS.config.update({ region: `${config.awsSesRegion}` });
 
 // choose AWS credentials profile
-const credentials = new AWS.SharedIniFileCredentials({ profile: 'default' });
+const credentials = new AWS.SharedIniFileCredentials({ profile: `${config.awsProfile}` });
 AWS.config.credentials = credentials;
 
 // declare and immediately invoke function (our script)
@@ -61,19 +62,14 @@ AWS.config.credentials = credentials;
     // create sendEmail params 
     const emailParams = {
       Destination: { /* required */
-        // CcAddresses: [
-        // 'example@gmail.com'
-        // ],
-        ToAddresses: [
-          // 'example@gmail.com'
-          'example@gmail.com'
-        ]
+        CcAddresses: config.ccEmails,
+        ToAddresses: config.toEmails
       },
       Message: { /* required */
         Body: { /* required */
           Text: {
             Charset: "UTF-8",
-            Data: `Beep boop, new ad big nuts:\n\n${createStringListOfAdLinks(newAds)}`
+            Data: `Beep boop, new ad:\n\n${createStringListOfAdLinks(newAds)}`
           }
         },
         Subject: {
@@ -81,14 +77,12 @@ AWS.config.credentials = credentials;
           Data: 'Test email'
         }
       },
-      Source: 'example@gmail.com', /* required */
-      ReplyToAddresses: [
-        'example@gmail.com'
-      ],
+      Source: config.fromEmail, /* required */
+      ReplyToAddresses: config.replyToEmails,
     };
     // create the promise and SES service object
     const sendPromise = new AWS.SES({ apiVersion: '2010-12-01' }).sendEmail(emailParams).promise();
-    // handle promise's fulfilled/rejected states
+    // handle promise's resolved/rejected states
     sendPromise.then(data => {
       console.log(data.MessageId);
     }).catch(err => {
@@ -99,7 +93,7 @@ AWS.config.credentials = credentials;
   // variables
   let scrapedAdsData;
   const searchItem = 'Weber';
-  const databaseUrl = "http://dbUsername:dbPassword@dbUrl/gumtree-notifier/"
+  const databaseUrl = `http://${config.dbUsername}:${config.dbPassword}@${config.dbUrl}/gumtree-notifier/`
 
   // launch puppeteer and open new tab
   const browser = await puppeteer.launch({ headless: false, timeout: 100000 });
@@ -138,9 +132,7 @@ AWS.config.credentials = credentials;
     // Collect Ad information
     scrapedAdsData = await page.evaluate(() => {
       const adsHtmlCollection = document.getElementsByClassName('user-ad-row');
-      console.log(typeof adsHtmlCollection);
       const adsArray = Array.from(adsHtmlCollection);
-      console.log(typeof adsArray);
       const scrapedAdsData = adsArray.map(adElement => {
         const href = adElement.getAttribute("href");
         return {
@@ -157,12 +149,12 @@ AWS.config.credentials = credentials;
   }
 
   // fake data for testing purposes
-  scrapedAdsData = [
-    {
-      id: 1, // extract id from scraped url
-      url: "http://www.1.com"
-    }
-  ]
+  // scrapedAdsData = [
+  //   {
+  //     id: 1, // extract id from scraped url
+  //     url: "http://www.1.com"
+  //   }
+  // ]
 
   // fetch ads data from previous scraping run from db
   const previousAdsData = await getPreviousAdsDataFromDb();
