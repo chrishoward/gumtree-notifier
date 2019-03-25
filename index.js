@@ -1,16 +1,16 @@
-
 // npm package imports
 const puppeteer = require('puppeteer');
 const axios = require('axios');
 const AWS = require('aws-sdk');
 
-// region for SES emailing
+// set region for SES emailing
 AWS.config.update({ region: 'us-east-1' });
 
 // choose AWS credentials profile
 const credentials = new AWS.SharedIniFileCredentials({ profile: 'default' });
 AWS.config.credentials = credentials;
 
+// declare and immediately invoke function (our script)
 (async () => {
   // functions
   const getPreviousAdsDataFromDb = async () => {
@@ -19,14 +19,13 @@ AWS.config.credentials = credentials;
       const previousAdsData = httpResponse.data.rows[0].doc.ads;
       return previousAdsData;
     } catch (error) {
-      // console.error(error);
+      console.error(error);
     }
   }
 
   const updateAdsDataInDb = async (scrapedAdsDataArray) => {
     try {
       const httpResponse = await axios.get(`${databaseUrl}/_all_docs?include_docs=true`);
-      // console.log('httpResponse: ', httpResponse);
       const document = httpResponse.data.rows[0].doc;
       const previousAdsDataId = document._id;
       const previousAdsDataRev = document._rev;
@@ -34,8 +33,7 @@ AWS.config.credentials = credentials;
         "_rev": previousAdsDataRev,
         "ads": scrapedAdsDataArray
       }
-      const httpResponse2 = await axios.put(`${databaseUrl}/${previousAdsDataId}`, newDocument)
-      // console.log('httpResponse2: ', httpResponse2);
+      await axios.put(`${databaseUrl}/${previousAdsDataId}`, newDocument)
     } catch (error) {
       console.error(error);
     }
@@ -52,11 +50,58 @@ AWS.config.credentials = credentials;
     return newAds;
   }
 
+  const createStringListOfAdLinks = (newAds) => {
+    const stringListOfAdLinks = newAds.reduce((result, element) => {
+      return result + `${element.url}\n\n`
+    }, "")
+    return stringListOfAdLinks;
+  }
+
+  const sendEmail = newAds => {
+    // create sendEmail params 
+    const emailParams = {
+      Destination: { /* required */
+        // CcAddresses: [
+        // 'example@gmail.com'
+        // ],
+        ToAddresses: [
+          // 'example@gmail.com'
+          'example@gmail.com'
+        ]
+      },
+      Message: { /* required */
+        Body: { /* required */
+          Text: {
+            Charset: "UTF-8",
+            Data: `Beep boop, new ad big nuts:\n\n${createStringListOfAdLinks(newAds)}`
+          }
+        },
+        Subject: {
+          Charset: 'UTF-8',
+          Data: 'Test email'
+        }
+      },
+      Source: 'example@gmail.com', /* required */
+      ReplyToAddresses: [
+        'example@gmail.com'
+      ],
+    };
+    // create the promise and SES service object
+    const sendPromise = new AWS.SES({ apiVersion: '2010-12-01' }).sendEmail(emailParams).promise();
+    // handle promise's fulfilled/rejected states
+    sendPromise.then(data => {
+      console.log(data.MessageId);
+    }).catch(err => {
+      console.error(err, err.stack);
+    });
+  }
+
   // variables
+  let scrapedAdsData;
   const searchItem = 'Weber';
-  // BAD: remove login details from file and git history
   const databaseUrl = "http://dbUsername:dbPassword@dbUrl/gumtree-notifier/"
 
+  // launch puppeteer and open new tab
   const browser = await puppeteer.launch({ headless: false, timeout: 100000 });
   const page = await browser.newPage();
   try {
@@ -78,113 +123,62 @@ AWS.config.credentials = credentials;
       page.waitForNavigation(),
       page.click('div.srg .g:first-child  a')
     ]);
-
     // Change search box from 'weber bbq' to 'weber'
     await page.click('#input-search-input', { clickCount: 3 })
     await page.keyboard.type('weber');
     await Promise.all([
-      page.waitFor(3000),
+      page.waitFor(2000),
       page.keyboard.press('Enter')
     ]);
-
+    // change select menu from 'best match' to 'most recent'
+    await Promise.all([
+      page.waitFor(2000),
+      page.select('#srp-sort-by', 'date')
+    ]);
     // Collect Ad information
-    let ads;
-    let adsArray;
-    await page.evaluate(() => {
-      ads = document.getElementsByClassName('user-ad-row');
-      adsArray = Array.from(ads);
-
-      // console.log(adsArray);
+    scrapedAdsData = await page.evaluate(() => {
+      const adsHtmlCollection = document.getElementsByClassName('user-ad-row');
+      console.log(typeof adsHtmlCollection);
+      const adsArray = Array.from(adsHtmlCollection);
+      console.log(typeof adsArray);
+      const scrapedAdsData = adsArray.map(adElement => {
+        const href = adElement.getAttribute("href");
+        return {
+          id: href.substr(href.lastIndexOf('/') + 1),
+          url: `http://www.gumtree.com.au${adElement.getAttribute("href")}`
+        }
+      })
+      return scrapedAdsData;
     })
-
-    // await page.evaluate(() => document.getElementById("input-search-input").click() = "");
-    // await page.focus('#input-search-input');
-    // await page.keyboard.type('weber');
-    // await page.evaluate(() => console.log(`The page ${location.href} has been loaded`));
-    // await page.screenshot({ path: 'gumtree.png' });
   } catch (error) {
     console.log(`Error: ${error}`);
   } finally {
     // await browser.close();
   }
 
-  // put scraped new ads data into data structure
-  const scrapedAdsData = [
+  // fake data for testing purposes
+  scrapedAdsData = [
     {
       id: 1, // extract id from scraped url
       url: "http://www.1.com"
-    },
-    {
-      id: 2, // extract id from scraped url
-      url: "http://www.2.com"
-    },
-    {
-      id: 4, // extract id from scraped url
-      url: "http://www.4.com"
     }
   ]
 
-  // fetch old ads data from db
+  // fetch ads data from previous scraping run from db
   const previousAdsData = await getPreviousAdsDataFromDb();
-
   // check to see if any of the new ads ids are not present in the old ads ids
   const newAds = getArrayOfNewAds(previousAdsData, scrapedAdsData)
-
+  // number of new ads found
   const qtyNewAdsFound = newAds.length;
+  // boolean of whether there are new ads found
   const newAdsFound = qtyNewAdsFound > 0;
   console.log('New ads found: ', qtyNewAdsFound);
-
   // if new ads found send email to ed with the urls from those ads
   if (newAdsFound) {
-    // Create sendEmail params 
-    const params = {
-      // TODO: change email details
-      Destination: { /* required */
-        // CcAddresses: [
-        // 'example@gmail.com'
-        // ],
-        ToAddresses: [
-          // 'example@gmail.com'
-          'example@gmail.com'
-        ]
-      },
-      Message: { /* required */
-        Body: { /* required */
-          // Html: {
-          //  Charset: "UTF-8",
-          //  Data: "HTML_FORMAT_BODY"
-          // },
-          Text: {
-            Charset: "UTF-8",
-            Data: `Beep boop, new ad big nuts:\n${JSON.stringify(newAds)}`
-          }
-        },
-        Subject: {
-          Charset: 'UTF-8',
-          Data: 'Test email'
-        }
-      },
-      Source: 'example@gmail.com', /* required */
-      ReplyToAddresses: [
-        'example@gmail.com'
-      ],
-    };
-
-    // Create the promise and SES service object
-    const sendPromise = new AWS.SES({ apiVersion: '2010-12-01' }).sendEmail(params).promise();
-
-    // Handle promise's fulfilled/rejected states
-    sendPromise.then(data => {
-      console.log(data.MessageId);
-    }).catch(err => {
-      // console.error(err, err.stack);
-    });
-
-    // if new ads found put the scraped ads array into db (overwrite previous?)
+    // put the scraped ads array into db
     updateAdsDataInDb(scrapedAdsData);
-
+    // send email
+    sendEmail(newAds);
   } // end of 'if (newAdsFound) { ... }'
-
-  // if there are no new ads, dont send email and leave old data in db
-
+  // if there are no new ads, dont send email and leave old data in db (do nothing)
 })();
