@@ -34,7 +34,7 @@ AWS.config.credentials = credentials;
         "_rev": previousAdsDataRev,
         "ads": scrapedAdsDataArray
       }
-      await axios.put(`${databaseUrl}/${previousAdsDataId}`, newDocument)
+      return axios.put(`${databaseUrl}/${previousAdsDataId}`, newDocument)
     } catch (error) {
       console.error(error);
     }
@@ -58,7 +58,7 @@ AWS.config.credentials = credentials;
     return stringListOfAdLinks;
   }
 
-  const sendEmail = newAds => {
+  const sendEmail = async newAds => {
     // create sendEmail params 
     const emailParams = {
       Destination: { /* required */
@@ -84,10 +84,11 @@ AWS.config.credentials = credentials;
     const sendPromise = new AWS.SES({ apiVersion: '2010-12-01' }).sendEmail(emailParams).promise();
     // handle promise's resolved/rejected states
     sendPromise.then(data => {
-      console.log(data.MessageId);
+      console.log("email sent");
     }).catch(err => {
       console.error(err, err.stack);
     });
+    return sendPromise;
   }
 
   // variables
@@ -95,11 +96,22 @@ AWS.config.credentials = credentials;
   const searchItem = 'Weber';
   const databaseUrl = `http://${config.dbUsername}:${config.dbPassword}@${config.dbUrl}/gumtree-notifier/`
 
+  // get current time to console log
+  const start = Date.now();
+  const date = new Date;
+  const timestamp = date.toLocaleTimeString('en-AU');
+  console.log(timestamp, '---------------------');
+
   // launch puppeteer and open new tab
-  const browser = await puppeteer.launch({ headless: false, timeout: 100000 });
+  console.log('launching chromium and new tab ...');
+  const browser = await puppeteer.launch({
+    // headless: false,
+    timeout: 100000
+  });
   const page = await browser.newPage();
   try {
     // load the page
+    console.log('navigating to google.com.au ...');
     await page.goto('https://www.google.com.au/', {
       waitUntil: "networkidle0"
     });
@@ -108,28 +120,33 @@ AWS.config.credentials = credentials;
     // input to searchItem
     await page.keyboard.type('weber gumtree queensland');
     // Click on search button and wait for navigation to finish
+    console.log('clicking search button and navigating to results page ...');
     await Promise.all([
       page.waitForNavigation(),
       page.click('#tsf > div:nth-child(2) > div > div.FPdoLc.VlcLAe > center > input[type="submit"]:nth-child(1)')
     ]);
     // Click on first link in google and wait for navigation to finish
+    console.log('clicking first google results link and navigating to gumtree results page ...');
     await Promise.all([
-      page.waitForNavigation(),
+      page.waitForNavigation({ timeout: 60000 }),
       page.click('div.srg .g:first-child  a')
     ]);
     // Change search box from 'weber bbq' to 'weber'
     await page.click('#input-search-input', { clickCount: 3 })
     await page.keyboard.type('weber');
+    console.log('pressing enter to search for just \'weber\' and navigating to new gumtree results page ...');
     await Promise.all([
       page.waitFor(2000),
       page.keyboard.press('Enter')
     ]);
     // change select menu from 'best match' to 'most recent'
+    console.log('changing \'best match\' search to \'most recent\' and reloading gumtree results ...');
     await Promise.all([
       page.waitFor(2000),
       page.select('#srp-sort-by', 'date')
     ]);
     // Collect Ad information
+    console.log('scraping ads data ...');
     scrapedAdsData = await page.evaluate(() => {
       const adsHtmlCollection = document.getElementsByClassName('user-ad-row');
       const adsArray = Array.from(adsHtmlCollection);
@@ -142,10 +159,11 @@ AWS.config.credentials = credentials;
       })
       return scrapedAdsData;
     })
+    console.log('scraping complete');
   } catch (error) {
-    console.log(`Error: ${error}`);
+    console.log(`scraping failed: ${error}`);
   } finally {
-    // await browser.close();
+    await browser.close();
   }
 
   // fake data for testing purposes
@@ -157,20 +175,28 @@ AWS.config.credentials = credentials;
   // ]
 
   // fetch ads data from previous scraping run from db
+  console.log('getting previous ads data from db ...');
   const previousAdsData = await getPreviousAdsDataFromDb();
+  // when first page ads are deleted, ads from the second page are brought into the bottom of the first page which is determined to be a new ad. only assess first half of first page ads to avoid this
+  const subsetScrapedAdsData = scrapedAdsData.slice(0, 11)
   // check to see if any of the new ads ids are not present in the old ads ids
-  const newAds = getArrayOfNewAds(previousAdsData, scrapedAdsData)
+  const newAds = getArrayOfNewAds(previousAdsData, subsetScrapedAdsData)
   // number of new ads found
   const qtyNewAdsFound = newAds.length;
+  console.log('new ads found: ', qtyNewAdsFound);
   // boolean of whether there are new ads found
   const newAdsFound = qtyNewAdsFound > 0;
-  console.log('New ads found: ', qtyNewAdsFound);
   // if new ads found send email to ed with the urls from those ads
   if (newAdsFound) {
     // put the scraped ads array into db
-    updateAdsDataInDb(scrapedAdsData);
+    console.log('storing scraped ads data in db ...');
+    await updateAdsDataInDb(scrapedAdsData);
     // send email
-    sendEmail(newAds);
+    console.log('sending email ...');
+    await sendEmail(newAds);
   } // end of 'if (newAdsFound) { ... }'
   // if there are no new ads, dont send email and leave old data in db (do nothing)
+  const end = Date.now();
+  const timeElapsed = (end - start) / 1000;
+  console.log('time taken: ', `${timeElapsed} seconds`);
 })();
