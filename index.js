@@ -46,7 +46,10 @@ AWS.config.credentials = credentials;
       const previousAdsIds = previousAdsData.map(previousAd => {
         return previousAd.id
       })
-      return !previousAdsIds.includes(scrapedAdId)
+      if (previousAdsIds.includes(scrapedAdId)) {
+        return false;
+      }
+      return true;
     });
     return newAds;
   }
