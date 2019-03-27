@@ -123,6 +123,9 @@ AWS.config.credentials = credentials;
   let scrapedAdsData;
   const searchItem = 'Weber';
   const databaseUrl = `http://${config.dbUsername}:${config.dbPassword}@${config.dbUrl}/gumtree-notifier/`
+  const gumtreeUrl = "https://www.gumtree.com.au/s-bbq/weber/k0c20067";
+  // different url for testing
+  // const gumtreeUrl = "https://www.gumtree.com.au/s-qld/free/k0l3008841";
 
   // get current time to console log
   const start = Date.now();
@@ -138,8 +141,8 @@ AWS.config.credentials = credentials;
   try {
     const page = await browser.newPage();
     await page.setViewport({ width: 1000, height: 600, deviceScaleFactor: 2 });
-    console.log('going to https://www.gumtree.com.au/s-bbq/weber/k0c20067 ...');
-    await page.goto('https://www.gumtree.com.au/s-bbq/weber/k0c20067', { waitUntil: "domcontentloaded" });
+    console.log(`going to ${gumtreeUrl} ...`);
+    await page.goto(`${gumtreeUrl}`, { waitUntil: "domcontentloaded" });
     await page.waitFor(4000);
     console.log('pressing enter to search for just \'weber\' and navigating to new gumtree results page ...');
     // change select menu from 'best match' to 'most recent'
@@ -177,7 +180,7 @@ AWS.config.credentials = credentials;
     console.log('getting previous ads data from db ...');
     const previousAdsData = await getPreviousAdsDataFromDb();
     // when first page ads are deleted, ads from the second page are brought into the bottom of the first page which is determined to be a new ad. only assess first half of first page ads to avoid this
-    const subsetScrapedAdsData = scrapedAdsData.slice(0, 11)
+    const subsetScrapedAdsData = scrapedAdsData.slice(0, 12)
     // check to see if any of the new ads ids are not present in the old ads ids
     const newAds = getArrayOfNewAds(previousAdsData, subsetScrapedAdsData)
     // number of new ads found
