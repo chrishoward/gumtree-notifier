@@ -55,7 +55,10 @@ AWS.config.credentials = credentials;
     return await Promise.all(
       newAds.map(async newAd => {
         await page.evaluate((newAd) => {
-          document.querySelector(".header__leaderboard-ad").remove();
+          const leaderboardAd = document.querySelector(".header__leaderboard-ad");
+          if (leaderboardAd) {
+            leaderboardAd.remove()
+          }
           document.querySelector(`#user-ad-${newAd.id}`).scrollIntoView();
         }, newAd);
         await page.waitFor(2000);
