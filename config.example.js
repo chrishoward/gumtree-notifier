@@ -4,15 +4,8 @@ module.exports = {
   "dbUrl": "12.34.56.78:9000",
   "awsProfile": "default",
   "awsSesRegion": "us-east-1",
-  "toEmails": [
-    "example@gmail.com"
-  ],
-  "ccEmails": [
-    "example1@gmail.com",
-    "example2@gmail.com"
-  ],
+  "toEmail": "example@gmail.com",
   "fromEmail": "example@gmail.com",
-  "replyToEmails": [
-    "example@gmail.com"
-  ]
+  "ccEmail": "example@gmail.com",
+  "contentIdDomain": "yourexampledomain.com.au"
 }

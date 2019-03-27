@@ -40,8 +40,8 @@ AWS.config.credentials = credentials;
     }
   }
 
-  const getArrayOfNewAds = (previousAdsData, scrapedAdsData) => {
-    const newAds = scrapedAdsData.filter(scrapedAd => {
+  const getArrayOfNewAds = (previousAdsData, subsetScrapedAdsData) => {
+    const newAds = subsetScrapedAdsData.filter(scrapedAd => {
       const scrapedAdId = scrapedAd.id;
       const previousAdsIds = previousAdsData.map(previousAd => {
         return previousAd.id
@@ -51,37 +51,61 @@ AWS.config.credentials = credentials;
     return newAds;
   }
 
-  const createStringListOfAdLinks = (newAds) => {
-    const stringListOfAdLinks = newAds.reduce((result, element) => {
-      return result + `${element.url}\n\n`
-    }, "")
-    return stringListOfAdLinks;
+  const getScreenshotsOfNewAds = async (newAds, page) => {
+    const newAdsWithScreenshotsPromises = newAds.map(newAd => {
+      return page.$(`#user-ad-${newAd.id}`)
+        .then(newAdElementHandle => {
+          return newAdElementHandle.screenshot({
+            type: "jpeg",
+            quality: 100,
+            encoding: 'base64'
+          })
+        }).then(newAdScreenshot => {
+          return {
+            ...newAd,
+            screenshot: newAdScreenshot
+          }
+        })
+    });
+    const newAdsWithScreenshots = await Promise.all(newAdsWithScreenshotsPromises);
+    return newAdsWithScreenshots;
   }
 
-  const sendEmail = async newAds => {
-    // create sendEmail params 
+  const createEmailMessage = (newAdsWithScreenshots) => {
+    let msg = "";
+    msg += `To: ${config.toEmail}\n`;
+    msg += `From: ${config.fromEmail}\n`;
+    msg += `CC: ${config.ccEmail}\n`;
+    msg += "Subject: New ad\n";
+    msg += "MIME-Version: 1.0\n";
+    msg += "Content-Type: multipart/related; boundary=\"NextPart\"\n\n";
+    msg += "--NextPart\n";
+    msg += "Content-Type: text/html\n\n";
+    msg += "Beep boop, new ad.</br></br>"
+    newAdsWithScreenshots.forEach(newAdWithScreenshot => {
+      msg += `<a href=\"${newAdWithScreenshot.url}\"><img src=\"cid:${newAdWithScreenshot.id}@${config.contentIdDomain}\" width=\"800\"></a><br>`
+    })
+    msg += "\n\n"
+    newAdsWithScreenshots.forEach(newAdWithScreenshot => {
+      msg += "--NextPart\n";
+      msg += `Content-Type: image/jpeg; name=\"${newAdWithScreenshot.id}.jpg\"\n`;
+      msg += "Content-Transfer-Encoding: base64\n";
+      msg += `Content-Disposition: inline; filename=\"${newAdWithScreenshot.id}.jpg\"\n`;
+      msg += `Content-ID: <${newAdWithScreenshot.id}@${config.contentIdDomain}>\n\n`;
+      msg += newAdWithScreenshot.screenshot.replace(/([^\0]{76})/g, "$1\n") + "\n\n";
+    })
+    msg += "--NextPart--";
+    return msg;
+  }
+
+  const sendRawEmail = async (newAdsWithScreenshots) => {
+    const msg = createEmailMessage(newAdsWithScreenshots);
     const emailParams = {
-      Destination: { /* required */
-        CcAddresses: config.ccEmails,
-        ToAddresses: config.toEmails
-      },
-      Message: { /* required */
-        Body: { /* required */
-          Text: {
-            Charset: "UTF-8",
-            Data: `Beep boop, new ad:\n\n${createStringListOfAdLinks(newAds)}`
-          }
-        },
-        Subject: {
-          Charset: 'UTF-8',
-          Data: 'Test email'
-        }
-      },
-      Source: config.fromEmail, /* required */
-      ReplyToAddresses: config.replyToEmails,
+      RawMessage: { Data: msg },
+      Source: config.tempEmail
     };
     // create the promise and SES service object
-    const sendPromise = new AWS.SES({ apiVersion: '2010-12-01' }).sendEmail(emailParams).promise();
+    const sendPromise = new AWS.SES({ apiVersion: '2010-12-01' }).sendRawEmail(emailParams).promise();
     // handle promise's resolved/rejected states
     sendPromise.then(data => {
       console.log("email sent");
@@ -109,71 +133,65 @@ AWS.config.credentials = credentials;
     timeout: 100000
   });
   const page = await browser.newPage();
-  try {
-    // load the page
-    console.log('navigating to google.com.au ...');
-    await page.goto('https://www.google.com.au/', {
-      waitUntil: "networkidle0"
-    });
-    // highlight the search bar
-    await page.focus('#tsf > div:nth-child(2) > div > div.RNNXgb > div > div.a4bIc > input');
-    // input to searchItem
-    await page.keyboard.type('weber gumtree queensland');
-    // Click on search button and wait for navigation to finish
-    console.log('clicking search button and navigating to results page ...');
-    await Promise.all([
-      page.waitForNavigation(),
-      page.click('#tsf > div:nth-child(2) > div > div.FPdoLc.VlcLAe > center > input[type="submit"]:nth-child(1)')
-    ]);
-    // Click on first link in google and wait for navigation to finish
-    console.log('clicking first google results link and navigating to gumtree results page ...');
-    await Promise.all([
-      page.waitForNavigation({ timeout: 60000 }),
-      page.click('div.srg .g:first-child  a')
-    ]);
-    // Change search box from 'weber bbq' to 'weber'
-    await page.click('#input-search-input', { clickCount: 3 })
-    await page.keyboard.type('weber');
-    console.log('pressing enter to search for just \'weber\' and navigating to new gumtree results page ...');
-    await Promise.all([
-      page.waitFor(2000),
-      page.keyboard.press('Enter')
-    ]);
-    // change select menu from 'best match' to 'most recent'
-    console.log('changing \'best match\' search to \'most recent\' and reloading gumtree results ...');
-    await Promise.all([
-      page.waitFor(2000),
-      page.select('#srp-sort-by', 'date')
-    ]);
-    // Collect Ad information
-    console.log('scraping ads data ...');
-    scrapedAdsData = await page.evaluate(() => {
-      const adsHtmlCollection = document.getElementsByClassName('user-ad-row');
-      const adsArray = Array.from(adsHtmlCollection);
-      const scrapedAdsData = adsArray.map(adElement => {
-        const href = adElement.getAttribute("href");
-        return {
-          id: href.substr(href.lastIndexOf('/') + 1),
-          url: `http://www.gumtree.com.au${adElement.getAttribute("href")}`
-        }
-      })
-      return scrapedAdsData;
+  page.setViewport({ width: 1000, height: 600, deviceScaleFactor: 2 });
+  // load the page
+  console.log('navigating to google.com.au ...');
+  await page.goto('https://www.google.com.au/', {
+    waitUntil: "networkidle0"
+  });
+  // highlight the search bar
+  await page.focus('#tsf > div:nth-child(2) > div > div.RNNXgb > div > div.a4bIc > input');
+  // input to searchItem
+  await page.keyboard.type('weber gumtree queensland');
+  // Click on search button and wait for navigation to finish
+  console.log('clicking search button and navigating to results page ...');
+  await Promise.all([
+    page.waitForNavigation(),
+    page.click('#tsf > div:nth-child(2) > div > div.FPdoLc.VlcLAe > center > input[type="submit"]:nth-child(1)')
+  ]);
+  // Click on first link in google and wait for navigation to finish
+  console.log('clicking first google results link and navigating to gumtree results page ...');
+  await Promise.all([
+    page.waitForNavigation({ timeout: 60000 }),
+    page.click('div.srg .g:first-child  a')
+  ]);
+  // Change search box from 'weber bbq' to 'weber'
+  await page.click('#input-search-input', { clickCount: 3 })
+  await page.keyboard.type('weber');
+  console.log('pressing enter to search for just \'weber\' and navigating to new gumtree results page ...');
+  await Promise.all([
+    page.waitFor(2000),
+    page.keyboard.press('Enter')
+  ]);
+  // change select menu from 'best match' to 'most recent'
+  console.log('changing \'best match\' search to \'most recent\' and reloading gumtree results ...');
+  await Promise.all([
+    page.waitFor(2000),
+    page.select('#srp-sort-by', 'date')
+  ]);
+  // Collect Ad information
+  console.log('scraping ads data ...');
+  let img;
+  scrapedAdsData = await page.evaluate(() => {
+    // delete top ads section so it doesn't get scraped
+    const topAdsSection = document.getElementsByClassName("panel search-results-page__top-ads-wrapper user-ad-collection user-ad-collection--row")[0]
+    if (topAdsSection) {
+      topAdsSection.remove();
+    }
+    // get HTMLCollection of ads 
+    const adsHtmlCollection = document.getElementsByClassName("user-ad-row");
+    // convert adsHtmlCollection to array so we can use the map array helper method
+    const adsArray = Array.from(adsHtmlCollection);
+    const scrapedAdsData = adsArray.map((adElement, adIndex) => {
+      const url = adElement.getAttribute("href");
+      return {
+        id: url.substr(url.lastIndexOf('/') + 1),
+        url: `http://www.gumtree.com.au${url}`,
+      }
     })
-    console.log('scraping complete');
-  } catch (error) {
-    console.log(`scraping failed: ${error}`);
-  } finally {
-    await browser.close();
-  }
-
-  // fake data for testing purposes
-  // scrapedAdsData = [
-  //   {
-  //     id: 1, // extract id from scraped url
-  //     url: "http://www.1.com"
-  //   }
-  // ]
-
+    return scrapedAdsData;
+  })
+  console.log('scraping complete');
   // fetch ads data from previous scraping run from db
   console.log('getting previous ads data from db ...');
   const previousAdsData = await getPreviousAdsDataFromDb();
@@ -191,12 +209,16 @@ AWS.config.credentials = credentials;
     // put the scraped ads array into db
     console.log('storing scraped ads data in db ...');
     await updateAdsDataInDb(scrapedAdsData);
-    // send email
+    // add screenshots data to newAds array for emailing
+    const newAdsWithScreenshots = await getScreenshotsOfNewAds(newAds, page);
+    // // send email
     console.log('sending email ...');
-    await sendEmail(newAds);
+    await sendRawEmail(newAdsWithScreenshots);
   } // end of 'if (newAdsFound) { ... }'
   // if there are no new ads, dont send email and leave old data in db (do nothing)
   const end = Date.now();
   const timeElapsed = (end - start) / 1000;
   console.log('time taken: ', `${timeElapsed} seconds`);
+  // close browser
+  await browser.close();
 })();
