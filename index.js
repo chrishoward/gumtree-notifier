@@ -84,7 +84,7 @@ AWS.config.credentials = credentials;
     msg += `To: ${config.toEmail}\n`;
     msg += `From: ${config.fromEmail}\n`;
     msg += `CC: ${config.ccEmail}\n`;
-    msg += `Subject: # ${newAdsWithScreenshots[0].title}\n`;
+    msg += `Subject: (${newAdsWithScreenshots.length}) ${newAdsWithScreenshots[0].title}\n`;
     msg += "MIME-Version: 1.0\n";
     msg += "Content-Type: multipart/related; boundary=\"NextPart\"\n\n";
     msg += "--NextPart\n";
