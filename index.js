@@ -126,9 +126,11 @@ AWS.config.credentials = credentials;
   let scrapedAdsData;
   const searchItem = 'Weber';
   const databaseUrl = `http://${config.dbUsername}:${config.dbPassword}@${config.dbUrl}/gumtree-notifier/`
-  const gumtreeUrl = "https://www.gumtree.com.au/s-bbq/weber/k0c20067";
-  // different url for testing
-  // const gumtreeUrl = "https://www.gumtree.com.au/s-qld/free/k0l3008841";
+  // IMPORTANT: comment out testing url and enable production url
+  // production url
+  // const gumtreeUrl = "https://www.gumtree.com.au/s-bbq/qld/weber/k0c20067l3008841";
+  // testing url
+  const gumtreeUrl = "https://www.gumtree.com.au/s-bbq/c20067";
 
   // get current time to console log
   const start = Date.now();
@@ -189,6 +191,10 @@ AWS.config.credentials = credentials;
     // number of new ads found
     const qtyNewAdsFound = newAds.length;
     console.log('new ads found: ', qtyNewAdsFound);
+    const newAdsIds = newAds.reduce((result, element) => {
+      return result += `${element.id}, `;
+    }, "")
+    console.log('new ads ids: ', newAdsIds);
     // boolean of whether there are new ads found
     const newAdsFound = qtyNewAdsFound > 0;
     // if new ads found send email to ed with the urls from those ads
