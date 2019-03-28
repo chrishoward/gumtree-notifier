@@ -125,11 +125,20 @@ AWS.config.credentials = credentials;
   // variables
   let scrapedAdsData;
   const searchItem = 'Weber';
-  const databaseUrl = `http://${config.dbUsername}:${config.dbPassword}@${config.dbUrl}/gumtree-notifier/`
+  const queryUrlsAndDbs = {
+    weber: {
+      queryUrl: "https://www.gumtree.com.au/s-bbq/qld/weber/k0c20067l3008841",
+      db: "gumtree-notifier"
+    },
+    webber: {
+      queryUrl: "https://www.gumtree.com.au/s-bbq/qld/webber/k0c20067l3008841",
+      db: "gumtree-notifier-webber"
+    }
+  }
+  const cmdLineArg = process.argv[2];
+  const databaseUrl = `http://${config.dbUsername}:${config.dbPassword}@${config.dbUrl}/${queryUrlsAndDbs[cmdLineArg].db}/`
   // production url
-  const gumtreeUrl = "https://www.gumtree.com.au/s-bbq/qld/weber/k0c20067l3008841";
-  // testing url
-  // const gumtreeUrl = "https://www.gumtree.com.au/s-bbq/c20067";
+  const gumtreeUrl = `${queryUrlsAndDbs[cmdLineArg].queryUrl}?sort=date`;
 
   // get current time to console log
   const start = Date.now();
@@ -148,13 +157,6 @@ AWS.config.credentials = credentials;
     console.log(`going to ${gumtreeUrl} ...`);
     await page.goto(`${gumtreeUrl}`, { waitUntil: "domcontentloaded" });
     await page.waitFor(4000);
-    console.log('pressing enter to search for just \'weber\' and navigating to new gumtree results page ...');
-    // change select menu from 'best match' to 'most recent'
-    console.log('changing \'best match\' search to \'most recent\' and reloading gumtree results ...');
-    await Promise.all([
-      page.waitFor(4000),
-      page.select('#srp-sort-by', 'date')
-    ]);
     // Collect Ad information
     console.log('scraping ads data ...');
     let img;
