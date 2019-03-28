@@ -126,11 +126,10 @@ AWS.config.credentials = credentials;
   let scrapedAdsData;
   const searchItem = 'Weber';
   const databaseUrl = `http://${config.dbUsername}:${config.dbPassword}@${config.dbUrl}/gumtree-notifier/`
-  // IMPORTANT: comment out testing url and enable production url
   // production url
-  // const gumtreeUrl = "https://www.gumtree.com.au/s-bbq/qld/weber/k0c20067l3008841";
+  const gumtreeUrl = "https://www.gumtree.com.au/s-bbq/qld/weber/k0c20067l3008841";
   // testing url
-  const gumtreeUrl = "https://www.gumtree.com.au/s-bbq/c20067";
+  // const gumtreeUrl = "https://www.gumtree.com.au/s-bbq/c20067";
 
   // get current time to console log
   const start = Date.now();
