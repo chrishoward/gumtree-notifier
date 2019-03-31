@@ -127,11 +127,11 @@ AWS.config.credentials = credentials;
   const searchItem = 'Weber';
   const queryUrlsAndDbs = {
     weber: {
-      queryUrl: "https://www.gumtree.com.au/s-bbq/qld/weber/k0c20067l3008841",
+      queryUrl: "https://www.gumtree.com.au/s-home-garden/qld/weber/k0c18397l3008841",
       db: "gumtree-notifier"
     },
     webber: {
-      queryUrl: "https://www.gumtree.com.au/s-bbq/qld/webber/k0c20067l3008841",
+      queryUrl: "https://www.gumtree.com.au/s-home-garden/qld/webber/k0c18397l3008841",
       db: "gumtree-notifier-webber"
     }
   }
