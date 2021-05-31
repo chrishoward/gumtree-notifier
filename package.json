@@ -6,7 +6,7 @@
   },
   "dependencies": {
     "aws-sdk": "^2.426.0",
-    "axios": "^0.18.0",
+    "axios": "^0.21.1",
     "puppeteer": "^1.13.0"
   }
 }
